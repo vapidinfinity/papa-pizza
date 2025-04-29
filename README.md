@@ -6,11 +6,17 @@
 
 just a school compsci project 💔
 
+## preliminary setup
+please install dependencies by running `pip install -r requirements.txt`.
+
+if required, you may set up a `venv`.
+
+## project structure
+for the assignment components, please see `docs/`.
+
+as for the code, please see `main.py`.
+
 ---
-
-**for the assignment components, please see `docs/`.**
-
-**as for the code, please see main.py.**
 
 <sub>
 if you're seeing this, and you're not my teacher, hello! otherwise, mark my work 🙏🏾
