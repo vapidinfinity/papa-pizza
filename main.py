@@ -56,8 +56,8 @@ class Order:
         self.items = items
         self.quantity = len(items)
         self.service_type = service_type
-
         self.paid = False
+        self.is_discounted = False
 
     # Calculate the cost of the order based on menu prices
     @property
@@ -90,6 +90,10 @@ class OrderManager:
         self.daily_sales = {}
     
     def list_orders(self):
+        if not self.orders:
+            cprint("no orders found :(", "red")
+            return
+
         for index, order in enumerate(self.orders, start=1):
             print(f"{index}. {order.service_type.name.capitalize()} Order {order.uuid}:")
             print(f"  Items: {[item.name for item in order.items]}")
@@ -98,8 +102,8 @@ class OrderManager:
             print(f"  Paid: {'Yes' if order.paid else 'No'}")
             print()
 
-    def _get_order_by_uuid(self, order_uuid: str) -> Order:
-        return next((order for order in self.orders if str(order.uuid) == order_uuid), None)
+    def _get_order_by_uuid(self, order_uuid: uuid.UUID) -> Order:  # changed parameter type from str to uuid.UUID
+        return next((order for order in self.orders if order.uuid == order_uuid), None)
 
     # Add an order to the system
     def create_order(self):
@@ -118,6 +122,9 @@ class OrderManager:
             prompt = input("do you want to switch to this order? (y/N): ")
             if parse_boolean_input(prompt, handle_invalid=True):
                 self._switch_order(self.orders.index(order) + 1)
+        else:
+            self._switch_order(self.orders.index(order) + 1)
+
     def _create_order(self, items: list[OrderItem], service_type: ServiceType) -> Order:
         order = Order(items, service_type)
         self.orders.append(order)
@@ -202,7 +209,8 @@ class OrderManager:
                 
     
     def add_order_item(self):
-        prompt = input("which menu item would you like to add? (name): ")
+        prompt = input("""which menu item would you like to add? otherwise, review the menu by pressing enter and typing menu at the blue prompt.
+for example: 'pepperoni' for pepperoni pizza, etc, etc (name): """)
         prompt = prompt.strip().lower()
 
         item = next((item for item in menu if item.name.lower() == prompt), None)
@@ -215,6 +223,10 @@ class OrderManager:
             cprint("invalid quantity", "red")
             return
         quantity = int(prompt)
+
+        if quantity > 10:
+            cprint("maximum quantity is 10 at a time, try adding items again to add more.", "red")
+            return
 
         for _ in range(quantity):
             self._add_order_item(item)
@@ -240,7 +252,7 @@ class OrderManager:
             cprint("invalid menu item", "red")
             return
         
-        prompt = input("how many of this item would you like to add? (1): ")
+        prompt = input("how many of this item would you like to remove? ")
         if not prompt.isdigit() or int(prompt) < 1:
             cprint("invalid quantity", "red")
             return
@@ -273,7 +285,16 @@ class OrderManager:
             cprint("order already paid.", "red")
             return
 
-        print(f"the total for order {order.uuid} is {order.total_cost}, including discounts and delivery, if applicable.")
+        extras = []
+        # constants so i can be lazy and hardcode it
+        if order.is_discounted:
+            extras.append(f"a 10% discount")
+        if order.service_type is ServiceType.DELIVERY:
+            extras.append(f"$8.00 delivery")
+
+        # smoothly concatenate the extras!
+        extras_str = f", including {' and '.join(extras)}" if extras else ""
+        print(f"the total for order {order.uuid} is ${order.total_cost:.2f}{extras_str}.")
         prompt = input(f"would you like to pay now? (y/N): ")
         if parse_boolean_input(prompt, handle_invalid=True):
             order.paid = True
@@ -291,11 +312,11 @@ class OrderManager:
             cprint("no sales to summarise :(", "red")
             return
 
+        for order_uuid, total_cost in self.daily_sales.items():
+            print(f"order {order_uuid}: {colored(f"${total_cost:.2f}", "green")}")
+
         total_sales = sum(self.daily_sales.values())
         cprint(f"total sales for today: ${total_sales:.2f}", "green")
-
-        for order_uuid, total_cost in self.daily_sales.items():
-            cprint(f"order {order_uuid}: ${total_cost:.2f}", "green")
 
         cprint("thank you for using papa-pizza!", "green")
 
