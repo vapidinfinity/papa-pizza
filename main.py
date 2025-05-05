@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+#  _ __   __ _ _ __   __ _ 
+# | '_ \ / _` | '_ \ / _` |
+# | |_) | (_| | |_) | (_| |
+# | .__/ \__,_| .__/ \__,_|
+# |_|__ (_)___|_|____ _    
+# | '_ \| |_  /_  / _` |   
+# | |_) | |/ / / / (_| |   
+# | .__/|_/___/___\__,_|   
+# |_|              by esi ✦         
+
 import signal
 import sys
 
@@ -12,17 +22,17 @@ from termcolor import cprint, colored
 
 class OrderItem(Protocol):
     @property
-    def NAME(self) -> str:
-        return self._NAME
+    def name(self) -> str:
+        return self._name
 
     @property
-    def PRICE(self) -> float:
-        return self._PRICE
+    def price(self) -> float:
+        return self._name
 
 class Pizza(OrderItem):
     def __init__(self, name: str, price: float):
-        self._NAME = name
-        self._PRICE = price
+        self._name = name
+        self._price = price
 
 class ServiceType(Enum):
     PICKUP = 0
@@ -47,31 +57,32 @@ class Order:
         self.quantity = len(items)
         self.service_type = service_type
 
-        # Calculate the cost of the order based on menu prices
-        self._raw_cost = sum(item.price for item in items)
-
-        # Process orders, calculate total cost, apply discounts and delivery charges
-        self.total_cost = self._raw_cost
-
-        # !!! whjat does this mean
-        # Apply discount if total cost (after applying previous discounts) exceeds $100
-        if self.total_cost > 100:
-            self.total_cost *= 0.9
-            self.is_discounted = True
-
-        if service_type is ServiceType.PICKUP:
-            pass
-        elif service_type is ServiceType.DELIVERY:
-            # Apply delivery charge if order is for delivery
-            self.total_cost += 8.00
-        else:
-            raise ValueError("Invalid service type!")
-        
         self.paid = False
 
+    # Calculate the cost of the order based on menu prices
     @property
     def raw_cost(self):
-        return self._raw_cost
+        return sum(item.price for item in self.items)
+    
+    # Calculate total cost, apply discounts and delivery charges
+    @property
+    def total_cost(self):
+        cost = self.raw_cost
+        # !!! whjat does applying previous discoundm mean
+        # Apply discount if total cost (after applying previous discounts) exceeds $100
+        if self.cost > 100:
+            self.cost *= 0.9
+            self.is_discounted = True
+        
+        if self.service_type is ServiceType.PICKUP:
+            pass
+        elif self.service_type is ServiceType.DELIVERY:
+            # Apply delivery charge if order is for delivery
+            self.cost += 8.00
+        else:
+            raise ValueError("Invalid service type!")
+
+        return cost
     
 class OrderManager:
     def __init__(self):
@@ -83,7 +94,7 @@ class OrderManager:
     def list_orders(self):
         for index, order in enumerate(self.orders, start=1):
             print(f"{index}. {order.service_type.name.capitalize()} Order {order.uuid}:")
-            print(f"  Items: {[item.NAME for item in order.items]}")
+            print(f"  Items: {[item.name for item in order.items]}")
             print(f"  Service Type: {order.service_type.name}")
             print(f"  Total Cost: ${order.total_cost:.2f}")
             print(f"  Paid: {'Yes' if order.paid else 'No'}")
@@ -121,13 +132,17 @@ class OrderManager:
         self.list_orders()
         prompt = input(f"which order would you like to remove? (1-{len(self.orders) + 1}):")
 
-        order_index = int(prompt)
-        if not prompt.isdigit() or order_index < 1 or order_index > len(self.orders):
+        if not prompt.isdigit():
             cprint("invalid order index", "red")
             return
-
+        
         order_index = int(prompt)
+        if order_index < 1 or order_index > len(self.orders):
+            cprint("invalid order index", "red")
+            return
+        
         self._remove_order(order_index)
+
     def _remove_order(self, order_index: int):
         # correct the order index to match the list index
         true_order_index = order_index - 1
@@ -136,6 +151,7 @@ class OrderManager:
         
         self.orders.pop(true_order_index)
         cprint(f"order {order_index} removed successfully!", "green")
+
 
     # switch order focus    
     def switch_order(self):
@@ -148,9 +164,10 @@ class OrderManager:
 
         order_index = int(prompt)
         self._switch_order(order_index)
+
     def _switch_order(self, order_index: int) -> Order:
         true_order_index = order_index - 1
-        if true_order_index >= 0 and true_order_index > len(self.orders):
+        if true_order_index >= 0 and true_order_index < len(self.orders):
             new_order = self.orders[true_order_index]
             if self.current_order_uuid == new_order.uuid:
                 cprint("this is already your current order!", "yellow")
@@ -161,6 +178,7 @@ class OrderManager:
             return new_order
         else:
             cprint("invalid order id; switch will not occur.", "red")
+
 
     def _check_current_order(self):
         order = self._get_order_by_uuid(self.current_order_uuid)
@@ -183,12 +201,13 @@ class OrderManager:
                 if parse_boolean_input(prompt, handle_invalid=True):
                     self.switch_order()
                     return
+                
     
     def add_order_item(self):
         prompt = input("which menu item would you like to add? (name): ")
         prompt = prompt.strip().lower()
 
-        item = next((item for item in menu if item.NAME.lower() == prompt), None)
+        item = next((item for item in menu if item.name.lower() == prompt), None)
         if item is None:
             cprint("invalid menu item", "red")
             return
@@ -201,6 +220,7 @@ class OrderManager:
 
         for _ in range(quantity):
             self._add_order_item(item)
+
     def _add_order_item(self, item: OrderItem):
         self._check_current_order()
 
@@ -210,13 +230,14 @@ class OrderManager:
             return
 
         order.items.append(item)
-        cprint(f"added {item.NAME} to order {order.uuid}", "green")
+        cprint(f"added {item.name} to order {order.uuid}", "green")
+
 
     def remove_order_item(self):
         prompt = input("which menu item would you like to remove?: ")
         prompt = prompt.strip().lower()
 
-        item = next((item for item in menu if item.NAME.lower() == prompt), None)
+        item = next((item for item in menu if item.name.lower() == prompt), None)
         if item is None:
             cprint("invalid menu item", "red")
             return
@@ -228,15 +249,16 @@ class OrderManager:
         quantity = int(prompt)
 
         for _ in range(quantity):
-            self._add_order_item(item)
+            self._remove_order_item(item)
 
     def _remove_order_item(self, item: OrderItem):
         self._check_current_order()
 
         order = self._get_order_by_uuid(self.current_order_uuid)
 
-        order.items.pop(item)
-        cprint(f"removed {item.NAME} from order {order.uuid}", "green")
+        order.items.remove(item)
+        cprint(f"removed {item.name} from order {order.uuid}", "green")
+
 
     # Process orders
     def process_order(self):
@@ -262,6 +284,7 @@ class OrderManager:
         else:
             cprint("payment cancelled", "yellow")
 
+
     # Generate daily sales summary
     def generate_daily_sales_summary(self):
         if not self.daily_sales:
@@ -283,7 +306,6 @@ def parse_boolean_input(self, prompt: str, handle_invalid: bool = False) -> bool
         return False
     else:
         cprint("invalid input, please try again.", "red")
-        return self._parse_boolean_input(input(prompt), handle_invalid)
 
 class Command:
     def __init__(self, name: str, function: callable, description: str):
