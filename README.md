@@ -7,7 +7,7 @@
 just a school compsci project 💔
 
 ## preliminary setup
-please install dependencies by running `pip install -r requirements.txt`.
+please install dependencies by running `pip install -r requirements.txt`, while the project is opened within terminal.
 
 if required, you may set up a `venv`.
 
