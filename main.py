@@ -96,7 +96,7 @@ class OrderManager:
 
         for index, order in enumerate(self.orders, start=1):
             print(f"{index}. {order.service_type.name.capitalize()} Order {order.uuid}:")
-            print(f"  Items: {[item.name for item in order.items]}")
+            print(f"  Items: {", ".join([item.name for item in order.items])}")
             print(f"  Service Type: {order.service_type.name}")
             print(f"  Total Cost: ${order.total_cost:.2f}")
             print(f"  Paid: {'Yes' if order.paid else 'No'}")
