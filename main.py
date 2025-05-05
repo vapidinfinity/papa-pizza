@@ -27,7 +27,7 @@ class OrderItem(Protocol):
 
     @property
     def price(self) -> float:
-        return self._price   # changed from _name to _price
+        return self._price
 
 class Pizza(OrderItem):
     def __init__(self, name: str, price: float):
