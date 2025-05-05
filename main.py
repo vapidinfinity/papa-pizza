@@ -7,7 +7,7 @@
 # |_|__ (_)___|_|____ _    
 # | '_ \| |_  /_  / _` |   
 # | |_) | |/ / / / (_| |   
-# | .__/|_/___/___\__,_|   
+# | .__/|_/___/___\__,_| 🍕 
 # |_|              by esi ✦         
 
 import signal
@@ -27,7 +27,7 @@ class OrderItem(Protocol):
 
     @property
     def price(self) -> float:
-        return self._name
+        return self._price   # changed from _name to _price
 
 class Pizza(OrderItem):
     def __init__(self, name: str, price: float):
@@ -70,18 +70,16 @@ class Order:
         cost = self.raw_cost
         # !!! whjat does applying previous discoundm mean
         # Apply discount if total cost (after applying previous discounts) exceeds $100
-        if self.cost > 100:
-            self.cost *= 0.9
+        if cost > 100:
+            cost *= 0.9
             self.is_discounted = True
-        
         if self.service_type is ServiceType.PICKUP:
             pass
         elif self.service_type is ServiceType.DELIVERY:
             # Apply delivery charge if order is for delivery
-            self.cost += 8.00
+            cost += 8.00
         else:
             raise ValueError("Invalid service type!")
-
         return cost
     
 class OrderManager:
@@ -130,7 +128,7 @@ class OrderManager:
     # Remove an order from the system
     def remove_order(self):
         self.list_orders()
-        prompt = input(f"which order would you like to remove? (1-{len(self.orders) + 1}):")
+        prompt = input(f"which order would you like to remove? (1-{len(self.orders)}):")
 
         if not prompt.isdigit():
             cprint("invalid order index", "red")
@@ -255,9 +253,11 @@ class OrderManager:
         self._check_current_order()
 
         order = self._get_order_by_uuid(self.current_order_uuid)
-
-        order.items.remove(item)
-        cprint(f"removed {item.name} from order {order.uuid}", "green")
+        if item in order.items:
+            order.items.remove(item)
+            cprint(f"removed {item.name} from order {order.uuid}", "green")
+        else:
+            cprint(f"{item.name} not in current order.", "red")
 
 
     # Process orders
@@ -299,14 +299,14 @@ class OrderManager:
 
         cprint("thank you for using papa-pizza!", "green")
 
-def parse_boolean_input(self, prompt: str, handle_invalid: bool = False) -> bool:
+def parse_boolean_input(prompt: str, handle_invalid: bool = False) -> bool:  # removed self parameter
     if prompt.lower() in ["y", "yes"]:
         return True
     elif prompt.lower() in ["n", "no"] or not handle_invalid:
         return False
     else:
         cprint("invalid input, please try again.", "red")
-
+        return False
 class Command:
     def __init__(self, name: str, function: callable, description: str):
         self.name = name
