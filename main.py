@@ -1,75 +1,32 @@
 #!/usr/bin/env python3
 
-import uuid
 import signal
 import sys
 
 from typing import Protocol
 from enum import Enum
+import inspect
 
+import uuid
 from termcolor import cprint, colored
 
 class OrderItem(Protocol):
     @property
-    def name(self) -> str:
-        return self._name
+    def NAME(self) -> str:
+        return self._NAME
 
     @property
-    def price(self) -> float:
-        return self._price
-
+    def PRICE(self) -> float:
+        return self._PRICE
 
 class Pizza(OrderItem):
     def __init__(self, name: str, price: float):
-        self._name = name
-        self._price = price
-
+        self._NAME = name
+        self._PRICE = price
 
 class ServiceType(Enum):
     PICKUP = 0
     DELIVERY = 1
-
-
-# Initialise menu with pizza names and prices
-menu: list[OrderItem] = [
-    Pizza("Pepperoni", 21.00),
-    Pizza("Chicken Supreme", 23.50),
-    Pizza("BBQ Meatlovers", 25.50),
-    Pizza("Veg Supreme", 22.50),
-    Pizza("Hawaiian", 19.00),
-    Pizza("Margherita", 18.50),
-]
-
-# Initialise order with pizza type and quantity
-
-
-class Order:
-    # Initialise pizza order with pizza type and quantity
-    def __init__(self, items: list[OrderItem], service_type: ServiceType):
-        self.id = uuid.uuid4()
-        self.items = items
-        self.quantity = len(items)
-        # Calculate the cost of the order based on menu prices
-        self._raw_cost = sum(item.price for item in items)
-        self.service_type = service_type
-
-        self.total_cost = self._raw_cost
-        if service_type == ServiceType.PICKUP:
-            pass
-        elif service_type == ServiceType.DELIVERY:
-            # Apply delivery charge if order is for delivery
-            self.total_cost += 8.00
-        else:
-            raise ValueError("Invalid service type!")
-
-        # Apply discount if total cost (after applying previous discounts) exceeds $100
-        if self.total_cost > 100:
-            self.total_cost *= 0.9
-
-    @property
-    def raw_cost(self):
-        return self._raw_cost
-
 
 # Initialise menu with pizza names and prices
 # Get the price of a pizza from the menu
@@ -82,137 +39,373 @@ menu: list[OrderItem] = [
     Pizza("Margherita", 18.50),
 ]
 
+class Order:
+    # Initialise pizza order with pizza type and quantity
+    def __init__(self, items: list[OrderItem], service_type: ServiceType):
+        self.uuid = uuid.uuid4()
+        self.items = items
+        self.quantity = len(items)
+        self.service_type = service_type
+
+        # Calculate the cost of the order based on menu prices
+        self._raw_cost = sum(item.price for item in items)
+
+        # Process orders, calculate total cost, apply discounts and delivery charges
+        self.total_cost = self._raw_cost
+
+        # !!! whjat does this mean
+        # Apply discount if total cost (after applying previous discounts) exceeds $100
+        if self.total_cost > 100:
+            self.total_cost *= 0.9
+            self.is_discounted = True
+
+        if service_type is ServiceType.PICKUP:
+            pass
+        elif service_type is ServiceType.DELIVERY:
+            # Apply delivery charge if order is for delivery
+            self.total_cost += 8.00
+        else:
+            raise ValueError("Invalid service type!")
+        
+        self.paid = False
+
+    @property
+    def raw_cost(self):
+        return self._raw_cost
+    
+class OrderManager:
+    def __init__(self):
+        # Initialise the Papa Pizza system with empty order list and daily sales dictionary
+        self.orders: list[Order] = []
+        self.current_order_uuid = None
+        self.daily_sales = {}
+    
+    def list_orders(self):
+        for index, order in enumerate(self.orders, start=1):
+            print(f"{index}. {order.service_type.name.capitalize()} Order {order.uuid}:")
+            print(f"  Items: {[item.NAME for item in order.items]}")
+            print(f"  Service Type: {order.service_type.name}")
+            print(f"  Total Cost: ${order.total_cost:.2f}")
+            print(f"  Paid: {'Yes' if order.paid else 'No'}")
+            print()
+
+    def _get_order_by_uuid(self, order_uuid: str) -> Order:
+        return next((order for order in self.orders if str(order.uuid) == order_uuid), None)
+
+    # Add an order to the system
+    def create_order(self):
+        prompt = input("what type of order would you like to create? (pickup/delivery): ")
+        prompt = prompt.strip().lower()
+        if prompt == "pickup":
+            service_type = ServiceType.PICKUP
+        elif prompt == "delivery":
+            service_type = ServiceType.DELIVERY
+        else:
+            cprint("invalid service type", "red")
+            return
+        
+        order = self._create_order([], service_type)
+        if len(self.orders) > 1:
+            prompt = input("do you want to switch to this order? (y/N): ")
+            if parse_boolean_input(prompt, handle_invalid=True):
+                self._switch_order(self.orders.index(order) + 1)
+    def _create_order(self, items: list[OrderItem], service_type: ServiceType) -> Order:
+        order = Order(items, service_type)
+        self.orders.append(order)
+        cprint(f"order {order.uuid} created successfully!", "green")
+        return order
+
+
+    # Remove an order from the system
+    def remove_order(self):
+        self.list_orders()
+        prompt = input(f"which order would you like to remove? (1-{len(self.orders) + 1}):")
+
+        order_index = int(prompt)
+        if not prompt.isdigit() or order_index < 1 or order_index > len(self.orders):
+            cprint("invalid order index", "red")
+            return
+
+        order_index = int(prompt)
+        self._remove_order(order_index)
+    def _remove_order(self, order_index: int):
+        # correct the order index to match the list index
+        true_order_index = order_index - 1
+        if self.current_order_uuid == self.orders[true_order_index].uuid:
+            self.current_order_uuid = None
+        
+        self.orders.pop(true_order_index)
+        cprint(f"order {order_index} removed successfully!", "green")
+
+    # switch order focus    
+    def switch_order(self):
+        self.list_orders()
+        prompt = input(f"which order would you like to switch to? (1-{len(self.orders)}): ")
+
+        if not prompt.isdigit() or int(prompt) < 1 or int(prompt) > len(self.orders):
+            cprint("invalid order index", "red")
+            return
+
+        order_index = int(prompt)
+        self._switch_order(order_index)
+    def _switch_order(self, order_index: int) -> Order:
+        true_order_index = order_index - 1
+        if true_order_index >= 0 and true_order_index > len(self.orders):
+            new_order = self.orders[true_order_index]
+            if self.current_order_uuid == new_order.uuid:
+                cprint("this is already your current order!", "yellow")
+                return
+            
+            self.current_order_uuid = new_order.uuid
+            cprint(f"switched to order {new_order.uuid}", "green")
+            return new_order
+        else:
+            cprint("invalid order id; switch will not occur.", "red")
+
+    def _check_current_order(self):
+        order = self._get_order_by_uuid(self.current_order_uuid)
+        if order is None:
+            cprint("no current order selected.", "red")
+            if self.orders:
+                prompt = input("would you like to select an order? (y/N): ")
+                if parse_boolean_input(prompt, handle_invalid=True):
+                    self.switch_order()
+                    return
+            else:
+                prompt = input("would you like to create an order? (y/N): ")
+                if parse_boolean_input(prompt, handle_invalid=True):
+                    self.create_order()
+                    return
+        else:
+            if order.paid:
+                cprint("this order has already been paid for.", "red")
+                prompt = input("would you like to switch to a different order? (y/N): ")
+                if parse_boolean_input(prompt, handle_invalid=True):
+                    self.switch_order()
+                    return
+    
+    def add_order_item(self):
+        prompt = input("which menu item would you like to add? (name): ")
+        prompt = prompt.strip().lower()
+
+        item = next((item for item in menu if item.NAME.lower() == prompt), None)
+        if item is None:
+            cprint("invalid menu item", "red")
+            return
+        
+        prompt = input("how many of this item would you like to add?: ")
+        if not prompt.isdigit() or int(prompt) < 1:
+            cprint("invalid quantity", "red")
+            return
+        quantity = int(prompt)
+
+        for _ in range(quantity):
+            self._add_order_item(item)
+    def _add_order_item(self, item: OrderItem):
+        self._check_current_order()
+
+        order = self._get_order_by_uuid(self.current_order_uuid)
+        if order is None:
+            cprint("order not found.", "red")
+            return
+
+        order.items.append(item)
+        cprint(f"added {item.NAME} to order {order.uuid}", "green")
+
+    def remove_order_item(self):
+        prompt = input("which menu item would you like to remove?: ")
+        prompt = prompt.strip().lower()
+
+        item = next((item for item in menu if item.NAME.lower() == prompt), None)
+        if item is None:
+            cprint("invalid menu item", "red")
+            return
+        
+        prompt = input("how many of this item would you like to add? (1): ")
+        if not prompt.isdigit() or int(prompt) < 1:
+            cprint("invalid quantity", "red")
+            return
+        quantity = int(prompt)
+
+        for _ in range(quantity):
+            self._add_order_item(item)
+
+    def _remove_order_item(self, item: OrderItem):
+        self._check_current_order()
+
+        order = self._get_order_by_uuid(self.current_order_uuid)
+
+        order.items.pop(item)
+        cprint(f"removed {item.NAME} from order {order.uuid}", "green")
+
+    # Process orders
+    def process_order(self):
+        self._check_current_order()
+
+        order = self._get_order_by_uuid(self.current_order_uuid)
+        if order is None:
+            cprint("order not found.", "red")
+            return
+
+        if order.paid:
+            cprint("order already paid.", "red")
+            return
+
+        print(f"the total for order {order.uuid} is {order.total_cost}, including discounts and delivery, if applicable.")
+        prompt = input(f"would you like to pay now? (y/N): ")
+        if parse_boolean_input(prompt, handle_invalid=True):
+            order.paid = True
+            cprint(f"order {order.uuid} paid successfully!", "green")
+            # Update daily sales
+            self.daily_sales[order.uuid] = order.total_cost
+            cprint(f"order {order.uuid} has been added to the daily sales summary.", "green")
+        else:
+            cprint("payment cancelled", "yellow")
+
+    # Generate daily sales summary
+    def generate_daily_sales_summary(self):
+        if not self.daily_sales:
+            cprint("no sales to summarise :(", "red")
+            return
+
+        total_sales = sum(self.daily_sales.values())
+        cprint(f"total sales for today: ${total_sales:.2f}", "green")
+
+        for order_uuid, total_cost in self.daily_sales.items():
+            cprint(f"order {order_uuid}: ${total_cost:.2f}", "green")
+
+        cprint("thank you for using papa-pizza!", "green")
+
+def parse_boolean_input(self, prompt: str, handle_invalid: bool = False) -> bool:
+    if prompt.lower() in ["y", "yes"]:
+        return True
+    elif prompt.lower() in ["n", "no"] or not handle_invalid:
+        return False
+    else:
+        cprint("invalid input, please try again.", "red")
+        return self._parse_boolean_input(input(prompt), handle_invalid)
+
+class Command:
+    def __init__(self, name: str, function: callable, description: str):
+        self.name = name
+        self.__function__ = function
+        self.description = description
+
+    def execute(self, tokens: list[str]):
+        signature = inspect.signature(self.__function__)
+        params = list(signature.parameters.keys())
+        if len(tokens) != len(params):
+            cprint(f"invalid number of arguments for command '{self.name}' — (expected {params}, got {tokens})", "red")
+            return
+
+        return self.__function__(*tokens)
+
 class CommandParser:
     def __init__(self):
-        self.commands = {
-            "order": {
-                "create": self.create_order,
-                "add_item": self.add_order_item,
-                "remove": self.remove_order,
-                "process": self.process_orders,
-            },
-            "menu": self.show_menu,
-            "summary": self.generate_daily_sales_summary,
-            "exit": lambda _: cprint("use 'quit' to exit", "yellow"),
-            "help": self.show_help,
-            "quit": self.quit,
-        }
-    
-    def _parse_boolean_input(self, prompt: str, handle_invalid: bool = False) -> bool:
-        if prompt.lower() in ["y", "yes"]:
-            return True
-        elif prompt.lower() in ["n", "no"] or not handle_invalid:
-            return False
-        else:
-            cprint("invalid input, please try again.", "red")
-            return self._handle_boolean_input(input(prompt), handle_invalid)
+        # Register basic commands
+        self.commands = [
+            Command("help", self.show_help, "Display this help message."),
+            Command("h", self.show_help, "Alias for 'help'."),
+            Command("quit", self.quit, "Exit the program."),
+            Command("exit", lambda: cprint("use quit to exit", "yellow"), "Alias for 'quit'."),
+        ]
 
-    def parse_command(self, command_str: str):
-        tokens = command_str.strip().lower().split()
-        if not tokens:
-            cprint("No command provided.", "red")
-            return
-        self._execute_command(self.commands, tokens)
-
-    # Recursively executes commands by pathfinding through the command tree.
-    def _execute_command(self, current, tokens: list):
-        if tokens:
-            key = tokens[0]
-            # if 'current' is a dict, take the first(next) token as the key and proceed.
-            if isinstance(current, dict):
-                if key in current:
-                    # recursively call the command again
-                    return self._execute_command(current[key], tokens[1:])
-                else:
-                    cprint(f"unknown command: {key}", "red")
-                    return
-            elif isinstance(current, callable):
-                return current(tokens)
-            else:
-                cprint("invalid command configuration.", "red")
-        else:
-            # if 'current' is callable, call it passing the remaining tokens.
-            if callable(current):
-                return current()
-            else:
-                cprint(f"incomplete command, unable to infer variable {current}.", "red")
-
-    def create_order(self):
-        pass
-
-    def remove_order(self):
-        pass
-
-    def add_order_item(self, tokens: list):
-        pass
-
-    def process_orders(self):
-        pass
-
-    def show_menu(self):
-        cprint("papa-pizza's famous menu", "")
-        for item in menu:
-            cprint(f"{item.name}: ${item.price:.2f}", "green")
-
-    def generate_daily_sales_summary(self):
-        pass
+    def parse_and_execute(self, input_str):
+        tokens = input_str.strip().split()
+        
+        for command in self.commands:
+            name_parts = command.name.split()
+            # if the command name matches the input, omit the matching indexes
+            if tokens[:len(name_parts)] == name_parts:
+                args = tokens[len(name_parts):]
+                return command.execute(args)
+        
+        cprint("unknown command. type 'help'.", "red")
 
     def show_help(self):
-        print("available commands: ")
-        for command in self.commands:
-            if isinstance(self.commands[command], dict):
-                cprint(f"{command} -> {', '.join(self.commands[command].keys())}", "green")
-            else:
-                cprint(command, "green")
+        print("available commands:")
+        # find the longest command name's length and use it to align everything to that length
+        max_len = max(len(cmd.name) for cmd in self.commands)
+        for cmd in self.commands:
+            print(f"{colored(cmd.name.ljust(max_len), 'blue')}  {cmd.description}")
 
+    # Exit the program
     def quit(self):
-        prompt = input(colored("are you sure you want to exit? (y/N): ", "yellow"))
-        if self._parse_boolean_input(prompt, handle_invalid=True):
+        prompt = input(colored("are you sure you want to quit? (y/N): ", "yellow"))
+        if parse_boolean_input(prompt, handle_invalid=True):
             cprint("okay, see ya!", "green")
-            exit(0)
+            sys.exit(0)
         else:
             cprint("okay, continuing...", "green")
             return
 
+    # User input menu
+    def start_repl(self):
+        while True:
+            user_input = input(colored("\n> ", "blue")).strip()
+            if user_input:
+                self.parse_and_execute(user_input)
 
-def main():
-    cprint("""
+class Application:
+    def __init__(self, *args):
+        self.order_manager = OrderManager()
+
+        parser = CommandParser()
+        parser.commands.append(Command("menu", self.show_menu, "Show the menu"))
+
+        parser.commands.append(Command("order create", self.order_manager.create_order, "Add an order"))
+        parser.commands.append(Command("order remove", self.order_manager.remove_order, "Remove an order"))
+        parser.commands.append(Command("order list", self.order_manager.list_orders, "List all orders"))
+        parser.commands.append(Command("order process", self.order_manager.process_order, "Process an order"))
+        # parser.commands.append(Command("order process all", self.order_manager.process_all_orders, "Process all orders"))
+        parser.commands.append(Command("order switch", self.order_manager.switch_order, "Switch to a different order"))
+
+        parser.commands.append(Command("order item add", self.order_manager.add_order_item, "Add an item to the current order"))
+        parser.commands.append(Command("order item remove", self.order_manager.remove_order_item, "Remove an item from the current order"))
+
+        parser.commands.append(Command("order summary", self.order_manager.generate_daily_sales_summary, "Generate daily sales summary"))
+
+        cprint("""
 welcome to papa-pizza 🍕,
 your local pizza store's ordering backend!
            
 by vapidinfinity, aka esi
-    """, "green")
+    """, "green", attrs=["bold"])
 
-    parser = CommandParser()
-    while True:
-        parser.parse_command(input(colored("\n> ", "blue")))
+        print("""this is a simple command line interface for ordering pizza.
+for more information, type 'help' or 'h' at any time.
+to exit the program, type 'quit' or 'exit'.""")
 
+        if args:
+            parser.parse_and_execute(" ".join(args))
 
+        parser.start_repl()
 
-
-# Calculate the cost of the order based on menu prices
-
-# Initialise the Papa Pizza system with empty order list and daily sales dictionary
-
-# Add an order to the system
-
-# Remove an order from the system
-
-# Process orders, calculate total cost, apply discounts and delivery charges
-
-    # Update daily sales
-
-# Generate daily sales summary
-
-# Main function to run the program
-
-    # User input menu
-    # Add order
-    # Remove order
-    # Process orders
     # Show menu
-    # Generate daily sales summary
-    # Exit the program
+    def show_menu(self):
+        cprint("papa-pizza's famous menu", None, attrs=["bold"])
+
+        current_item = None
+        for item in menu:
+            if type(item) is not type(current_item):
+                current_item = item
+                cprint(f"\n{type(item).__name__}:", "green", attrs=["bold"])
+                
+            cprint(f"{item.name}: ${item.price:.2f}", "green")
+            
+# Main function to run the program
+def main():
+    args = sys.argv[1:]
+    Application(*args)
+
+class SignalHandler:
+    # signal handler to handle ctrl+c
+    def sigint(signum, frame):
+        cprint("\n" + "next time, use quit!", "yellow")
+        sys.exit(0)
+
+# register signal handler for (ctrl+c) SIGINT
+signal.signal(signal.SIGINT, SignalHandler.sigint)
 
 if __name__ == "__main__":
     main()

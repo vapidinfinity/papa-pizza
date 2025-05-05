@@ -1,0 +1,331 @@
+#!/usr/bin/env python3
+
+import uuid
+import signal
+import sys
+
+from typing import Protocol
+from enum import Enum
+
+from termcolor import cprint, colored
+
+class OrderItem(Protocol):
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def price(self) -> float:
+        return self._price
+
+
+class Pizza(OrderItem):
+    def __init__(self, name: str, price: float):
+        self._name = name
+        self._price = price
+
+class ServiceType(Enum):
+    PICKUP = 0
+    DELIVERY = 1
+
+# Initialise menu with pizza names and prices
+menu: list[OrderItem] = [
+    Pizza("Pepperoni", 21.00),
+    Pizza("Chicken Supreme", 23.50),
+    Pizza("BBQ Meatlovers", 25.50),
+    Pizza("Veg Supreme", 22.50),
+    Pizza("Hawaiian", 19.00),
+    Pizza("Margherita", 18.50),
+]
+
+# Initialise order with pizza type and quantity
+
+class Order:
+    # Initialise pizza order with pizza type and quantity
+    def __init__(self, items: list[OrderItem], service_type: ServiceType):
+        self.id = uuid.uuid4()
+        self.items = items
+        self.quantity = len(items)
+        self.service_type = service_type
+
+        # Calculate the cost of the order based on menu prices
+        self._raw_cost = sum(item.price for item in items)
+
+        # Process orders, calculate total cost, apply discounts and delivery charges
+        self.total_cost = self._raw_cost
+
+        # Apply discount if total cost (after applying previous discounts) exceeds $100
+        if self.total_cost > 100:
+            self.total_cost *= 0.9
+            self.is_discounted = True
+
+        if service_type is ServiceType.PICKUP:
+            pass
+        elif service_type is ServiceType.DELIVERY:
+            self.total_cost += 8.00
+        else:
+            raise ValueError("Invalid service type!")
+        
+        self.paid = False
+
+    @property
+    def raw_cost(self):
+        return self._raw_cost
+
+
+# Initialise menu with pizza names and prices
+# Get the price of a pizza from the menu
+menu: list[OrderItem] = [
+    Pizza("Pepperoni", 21.00),
+    Pizza("Chicken Supreme", 23.50),
+    Pizza("BBQ Meatlovers", 25.50),
+    Pizza("Veg Supreme", 22.50),
+    Pizza("Hawaiian", 19.00),
+    Pizza("Margherita", 18.50),
+]
+
+# Initialise the Papa Pizza system with empty order list and daily sales dictionary
+class OrderManager:
+    def __init__(self):
+        self.orders: list[Order] = []
+        self.current_order = lambda: self.orders[-1]
+        self.daily_sales = {}
+    
+    def list_orders(self):
+        cprint("current orders:", "green")
+        for index, order in enumerate(self.orders, start=1):
+            cprint(f"{index} • {order.items}, total cost: ${order.total_cost}", "green")
+
+    def __validate_order_index(self, index: int):
+        if index < 1 or index > len(self.orders):
+            cprint("invalid order index", "red")
+            return False
+        
+        return True
+
+    def remove_order(self):
+        self.list_orders()
+        prompt = input(f"which order would you like to remove? (0-{len(self.orders)}):")
+
+    def _remove_order(self, index: int):
+        if not self.__validate_order_index(index) or index is 0:
+            pass
+            return
+        
+        
+        order = self.orders.pop(index - 1)
+        cprint(f"removed order {order.id} successfully", "green")
+    
+    def complete_order(self):
+        pass
+
+    def _complete_order(self, index: int):
+        if not self.__validate_order_index(index):
+            return
+        
+        order = self.orders[index - 1]
+        if order.paid:
+            cprint(f"order {order.id} already paid", "red")
+            return
+
+        order.paid = True
+        cprint(f"order {order.id} paid successfully", "green")
+
+
+order_manager = OrderManager()
+
+class CommandParser:
+    def __init__(self):
+        self.commands = {
+            "order": {
+                "create": self.create_order,
+                "item": {
+                    "add": self.add_order_item,
+                    "remove": self.remove_order_item,
+                },
+                "list": order_manager.list_orders,
+                "remove": self.remove_order,
+                "process": self.process_order,
+                "process_all": self.process_all_orders, 
+            },
+            "menu": self.show_menu,
+            "summary": self.generate_daily_sales_summary,
+            "exit": lambda: cprint("use 'quit' to exit", "yellow"),
+            "help": self.show_help,
+            "h": self.show_help,
+            "quit": self.quit,
+        }
+    
+    def _parse_boolean_input(self, prompt: str, handle_invalid: bool = False) -> bool:
+        if prompt.lower() in ["y", "yes"]:
+            return True
+        elif prompt.lower() in ["n", "no"] or not handle_invalid:
+            return False
+        else: 
+            cprint("invalid input, please try again.", "red")
+            return self._parse_boolean_input(input(prompt), handle_invalid)
+
+    def parse_command(self, command_str: str):
+        tokens = command_str.strip().lower().split()
+        if not tokens:
+            cprint("no command provided.", "red")
+            return
+        self._execute_command(self.commands, tokens)
+
+    # Recursively executes commands by pathfinding through the command tree.
+    def _execute_command(self, current, tokens: list):
+        if tokens:
+            key = tokens[0]
+            # if 'current' is a dict, take the first(next) token as the key and proceed.
+            if isinstance(current, dict):
+                if key in current:
+                    # recursively call the command again
+                    return self._execute_command(current[key], tokens[1:])
+                else:
+                    cprint(f"unknown command: {key}", "red")
+                    return
+            elif isinstance(current, callable):
+                return current(tokens)
+            else:
+                cprint("invalid command configuration.", "red")
+        else:
+            # if 'current' is callable, call it passing the remaining tokens.
+            if callable(current):
+                return current()
+            else:
+                cprint("incomplete command, not enough variables provided...", "red")
+                self.show_help()
+                return
+
+    def create_order(self):
+        service_type = None
+        prompt = input("what type of service? (pickup/delivery): ")
+        prompt = prompt.strip().lower()
+        if prompt == "pickup":
+            service_type = ServiceType.PICKUP
+        elif prompt == "delivery":
+            service_type = ServiceType.DELIVERY
+        else:
+            cprint("invalid service type, please try creating the order again.", "red")
+            return
+        
+        cprint(f"creating order with service type: {service_type}", "green")
+
+        order = Order(items=[], service_type=service_type)
+        order_manager.orders.append(order)
+        cprint(f"order {order.id} created successfully!", "green")
+
+
+    def add_order_item(self):
+        pass
+
+    def remove_order_item(self):
+        pass
+
+    def process_order(self):
+        pass
+
+    def remove_order(self):
+        order_manager.remove_order()
+
+    def _process_order(self, order: Order):
+        pass
+
+    def process_all_orders(self):
+        for order in order_manager.orders:
+            self._process_order(order)
+
+    def show_menu(self):
+        cprint("papa-pizza's famous menu", "yellow", attrs=["bold"])
+
+        current_item = None
+        for item in menu:
+            if type(item) is not type(current_item):
+                current_item = item
+                cprint(f"\n{type(item).__name__}:", "green", attrs=["bold"])
+                
+            cprint(f"{item.name}: ${item.price:.2f}", "green")
+
+    def generate_daily_sales_summary(self):
+        pass
+
+    def show_help(self):
+        cprint("available commands:", "green", attrs=["bold"])
+        for command in self._iterate_commands(self.commands):
+            print(command)
+
+    def _iterate_commands(self, commands, depth=0):
+        lines = []
+        indent = "   " * depth
+        for key, value in commands.items():
+            if isinstance(value, dict):
+                lines.append(colored(f"{indent}{key}:", "yellow"))
+                lines.extend(self._iterate_commands(value, depth + 1))
+            else:
+                lines.append(f"{indent}{key}")
+        return lines
+
+    def quit(self):
+        prompt = input(colored("are you sure you want to exit? (y/N): ", "yellow"))
+        if self._parse_boolean_input(prompt, handle_invalid=True):
+            cprint("okay, see ya!", "green")
+            exit(0)
+        else:
+            cprint("okay, continuing...", "green")
+            return
+
+
+class Application:
+    def __init__(self):
+        self.order_manager = OrderManager()
+        self.parser = CommandParser()
+        self.__run_main_loop__()
+
+    def __run_main_loop__(self):
+        cprint("""
+welcome to papa-pizza 🍕,
+your local pizza store's ordering backend!
+           
+by vapidinfinity, aka esi
+        """, "green", attrs=["bold"])
+
+        cprint("""this is a simple command line interface for ordering pizza.
+for more information, type 'help' or 'h' at any time.
+to exit the program, type 'quit' or 'exit'.
+        """, "green")
+        
+        while True:
+            self.parser.parse_command(input(colored("\n> ", "blue")))
+
+    
+
+def main():
+    Application()
+
+# Process orders, calculate total cost, apply discounts and delivery charges
+
+    # Update daily sales
+
+# Generate daily sales summary
+
+# Main function to run the program
+
+    # User input menu
+    # Add order
+    # Remove order
+    # Process orders
+    # Show menu
+    # Generate daily sales summary
+    # Exit the program
+
+class SignalHandler:
+    # Signal handler to handle Ctrl+C
+    def sigint(signum, frame):
+        cprint("\n" + "next time, use quit!", "yellow")
+        sys.exit(0)
+
+# register signal handler for SIGINT (Ctrl+C)
+signal.signal(signal.SIGINT, SignalHandler.sigint)
+
+if __name__ == "__main__":
+    main()
