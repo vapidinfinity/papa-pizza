@@ -13,14 +13,33 @@
 import signal
 import sys
 
-from typing import Protocol
+from typing import Callable
+from abc import ABC, abstractmethod
 from enum import Enum
 import inspect
 
 import uuid
 from termcolor import cprint, colored
 
-class OrderItem(Protocol):
+# establish a base class for order items
+class OrderItem(ABC):
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def price(self) -> float:
+        pass
+
+# pizza implementation uses `OrderItem` as its base class
+class Pizza(OrderItem):
+    def __init__(self, name: str, price: float):
+        self._name = name
+        self._price = price
+
+    # implement OrderItem abstract methods without setters -- this will ensure immutability
     @property
     def name(self) -> str:
         return self._name
@@ -29,10 +48,6 @@ class OrderItem(Protocol):
     def price(self) -> float:
         return self._price
 
-class Pizza(OrderItem):
-    def __init__(self, name: str, price: float):
-        self._name = name
-        self._price = price
 
 class ServiceType(Enum):
     PICKUP = 0
@@ -171,20 +186,20 @@ class OrderManager:
         order_index = int(prompt)
         self._switch_order(order_index)
 
-    def _switch_order(self, order_index: int) -> Order:
+    def _switch_order(self, order_index: int) -> Order | None:
         true_order_index = order_index - 1
-        if true_order_index >= 0 and true_order_index < len(self.orders):
+        if 0 <= true_order_index < len(self.orders):
             new_order = self.orders[true_order_index]
             if self.current_order_uuid == new_order.uuid:
                 cprint("this is already your current order!", "yellow")
-                return
+                return None
             
             self.current_order_uuid = new_order.uuid
             cprint(f"switched to order {new_order.uuid}", "green")
             return new_order
         else:
             cprint("invalid order id; switch will not occur.", "red")
-
+            return None
 
     def _check_current_order(self):
         order = self._get_order_by_uuid(self.current_order_uuid)
@@ -330,7 +345,7 @@ def parse_boolean_input(prompt: str, handle_invalid: bool = False) -> bool:  # r
         cprint("invalid input, please try again.", "red")
         return False
 class Command:
-    def __init__(self, name: str, function: callable, description: str):
+    def __init__(self, name: str, function: Callable, description: str):
         self.name = name
         self.__function__ = function
         self.description = description
@@ -340,7 +355,7 @@ class Command:
         params = list(signature.parameters.keys())
         if len(tokens) != len(params):
             cprint(f"invalid number of arguments for command '{self.name}' — (expected {params}, got {tokens})", "red")
-            return
+            return None
 
         return self.__function__(*tokens)
 
@@ -365,6 +380,7 @@ class CommandParser:
                 return command.execute(args)
         
         cprint("unknown command. type 'help'.", "red")
+        return None
 
     def show_help(self):
         print("available commands:")
@@ -374,7 +390,8 @@ class CommandParser:
             print(f"{colored(cmd.name.ljust(max_len), 'blue')}  {cmd.description}")
 
     # Exit the program
-    def quit(self):
+    @staticmethod
+    def quit():
         prompt = input(colored("are you sure you want to quit? (y/N): ", "yellow"))
         if parse_boolean_input(prompt, handle_invalid=True):
             cprint("okay, see ya!", "green")
@@ -426,7 +443,8 @@ to exit the program, type 'quit' or 'exit'.""")
         parser.start_repl()
 
     # Show menu
-    def show_menu(self):
+    @staticmethod
+    def show_menu():
         cprint("papa-pizza's famous menu", None, attrs=["bold"])
 
         current_item = None
@@ -444,7 +462,8 @@ def main():
 
 class SignalHandler:
     # signal handler to handle ctrl+c
-    def sigint(signum, frame):
+    @staticmethod
+    def sigint(_, __):
         cprint("\n" + "next time, use quit!", "yellow")
         sys.exit(0)
 
