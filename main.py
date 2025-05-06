@@ -51,13 +51,14 @@ menu: list[OrderItem] = [
 
 class Order:
     # Initialise pizza order with pizza type and quantity
-    def __init__(self, items: list[OrderItem], service_type: ServiceType):
+    def __init__(self, items: list[OrderItem], service_type: ServiceType, is_discounted: bool = False):
         self.uuid = uuid.uuid4()
         self.items = items
         self.quantity = len(items)
         self.service_type = service_type
+        self.is_discounted = is_discounted
+        
         self.paid = False
-        self.is_discounted = False
 
     # Calculate the cost of the order based on menu prices
     @property
