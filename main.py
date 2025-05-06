@@ -57,7 +57,7 @@ class Order:
         self.quantity = len(items)
         self.service_type = service_type
         self.is_discounted = is_discounted
-        
+
         self.paid = False
 
     # Calculate the cost of the order based on menu prices
