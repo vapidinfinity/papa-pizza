@@ -326,9 +326,11 @@ class OrderManager:
         if order.service_type is ServiceType.DELIVERY:
             extras.append(f"$8.00 delivery")
 
+        extras.append(f"10% GST")
+
         # smoothly concatenate the extras!
         extras_str = f", including {' and '.join(extras)}" if extras else ""
-        print(f"the total for order {order.uuid} is ${order.total_cost:.2f}{extras_str} including 10% GST.")
+        print(f"the total for order {order.uuid} is ${order.total_cost:.2f}{extras_str}.")
         prompt = input(f"would you like to pay now? (y/N): ")
         if parse_boolean_input(prompt, handle_invalid=True):
             order.paid = True
