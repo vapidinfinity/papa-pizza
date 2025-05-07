@@ -66,12 +66,12 @@ menu: list[OrderItem] = [
 
 class Order:
     # Initialise pizza order with pizza type and quantity
-    def __init__(self, items: list[OrderItem], service_type: ServiceType, is_discounted: bool = False):
+    def __init__(self, items: list[OrderItem], service_type: ServiceType):
         self.uuid = uuid.uuid4()
         self.items = items
         self.quantity = len(items)
         self.service_type = service_type
-        self.is_discounted = is_discounted
+        self.is_discounted = False
 
         self.paid = False
 
@@ -84,11 +84,13 @@ class Order:
     @property
     def total_cost(self):
         cost = self.raw_cost
-        # !!! whjat does applying previous discoundm mean
+
+
         # Apply discount if total cost (after applying previous discounts) exceeds $100
         if cost > 100:
             cost *= 0.9
             self.is_discounted = True
+
         if self.service_type is ServiceType.PICKUP:
             pass
         elif self.service_type is ServiceType.DELIVERY:
@@ -96,6 +98,7 @@ class Order:
             cost += 8.00
         else:
             raise ValueError("Invalid service type!")
+
         return cost * 1.1 # add 10% GST
     
 class OrderManager:
@@ -104,17 +107,31 @@ class OrderManager:
         self.orders: list[Order] = []
         self.current_order_uuid = None
         self.daily_sales = {}
+
+    def print_order(self, order, with_index: bool = True):
+        if with_index:
+            try:
+                index = self.orders.index(order) + 1 if with_index else None
+            except ValueError:
+                cprint("order not found in the list.", "red")
+                return
+
+            cprint(f"{index}. {order.service_type.name.lower()} order {order.uuid}:", "green")
+        else:
+            cprint(f"{order.service_type.name.lower()} order {order.uuid}:", "green")
+
+        print("\t" + f"items: {', '.join([item.name for item in order.items]) or 'none'}")
+        print("\t" + f"service type: {order.service_type.name}")
+        print("\t" + f"total cost: ${order.total_cost:.2f}")
+        print("\t" + f"paid: {'yes' if order.paid else 'no'}")
+
     def list_orders(self):
         if not self.orders:
             cprint("no orders found :(", "red")
             return
 
-        for index, order in enumerate(self.orders, start=1):
-            print(f"{index}. {order.service_type.name.lower()} order {order.uuid}:")
-            print(f"  items: {", ".join([item.name for item in order.items]) or 'none'}")
-            print(f"  service type: {order.service_type.name}")
-            print(f"  total cost: ${order.total_cost:.2f}")
-            print(f"  paid: {'yes' if order.paid else 'no'}")
+        for order in self.orders:
+            self.print_order(order)
 
     def _get_order_by_uuid(self, order_uuid: uuid.UUID) -> Order:  # changed parameter type from str to uuid.UUID
         return next((order for order in self.orders if order.uuid == order_uuid), None)
