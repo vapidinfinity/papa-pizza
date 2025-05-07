@@ -23,6 +23,7 @@ from termcolor import cprint, colored
 
 # establish a base class for order items
 class OrderItem(ABC):
+    """Abstract base class for items that can be ordered."""
     @property
     @abstractmethod
     def name(self) -> str:
@@ -35,6 +36,7 @@ class OrderItem(ABC):
 
 # pizza implementation uses `OrderItem` as its base class
 class Pizza(OrderItem):
+    """Concrete OrderItem representing a pizza with a name and a price."""
     def __init__(self, name: str, price: float):
         self._name = name
         self._price = price
@@ -50,6 +52,7 @@ class Pizza(OrderItem):
 
 
 class ServiceType(Enum):
+    """Enumeration of service types: pickup or delivery."""
     PICKUP = 0
     DELIVERY = 1
 
@@ -65,6 +68,7 @@ menu: list[OrderItem] = [
 ]
 
 class Order:
+    """Represents a customer order, its items, service type, discounts, and payment status."""
     def __init__(self, items: list[OrderItem], service_type: ServiceType, has_loyalty_card: bool = False):
         self.uuid = uuid.uuid4()
         self.items = items
@@ -76,12 +80,13 @@ class Order:
     # Calculate the cost of the order based on menu prices
     @property
     def raw_cost(self):
+        """Return sum of item prices before discounts, fees, or taxes."""
         return sum(item.price for item in self.items)
     
     # Calculate total cost, apply discounts and delivery charges
     @property
     def total_cost(self):
-        """Compute total cost with discounts, fees, and GST."""
+        """Compute total cost including discounts, delivery fee, and GST."""
         cost = self.raw_cost
         # Apply 5% discount for loyalty or bulk orders > $100
         if cost > 100 or self.has_loyalty_card:
@@ -99,6 +104,7 @@ class Order:
         return cost * 1.1 # add 10% GST
     
 class OrderManager:
+    """Manage creation, modification, processing, and listing of multiple orders."""
     def __init__(self):
         # initialise the Papa Pizza system with empty order list and daily sales dictionary
         self.orders: list[Order] = []
@@ -106,6 +112,7 @@ class OrderManager:
         self.daily_sales = {}
 
     def print_order(self, order, with_index: bool = True):
+        """Display details of a single order, optionally numbered."""
         if with_index:
             try:
                 index = self.orders.index(order) + 1 if with_index else None
@@ -123,6 +130,7 @@ class OrderManager:
         print("\t" + f"paid: {'yes' if order.paid else 'no'}")
 
     def list_orders(self):
+        """List all orders or report none exist."""
         if not self.orders:
             cprint("no orders found :(", "red")
             return
@@ -135,6 +143,7 @@ class OrderManager:
 
     # Add an order to the system
     def create_order(self, type: str | None = None):
+        """Interactively prompt to create a new order with service type and loyalty flag."""
         # prompt service type
         if type is None:
             type = input("Order type? (pickup/delivery): ").strip().lower()
@@ -158,7 +167,7 @@ class OrderManager:
             self._switch_order(self.orders.index(order) + 1)
 
     def _create_order(self, items: list[OrderItem], service_type: ServiceType, has_loyalty: bool) -> Order:
-        """Internal: instantiate and register a new Order."""
+        """Instantiate and register a new Order internally."""
         order = Order(items, service_type, has_loyalty)
         self.orders.append(order)
         cprint(f"order {order.uuid} created successfully!", "green")
@@ -167,6 +176,7 @@ class OrderManager:
 
     # Remove an order from the system
     def remove_order(self):
+        """Interactively remove an order by its list index."""
         self.list_orders()
         prompt = input(f"which order would you like to remove? (1-{len(self.orders)}):")
 
@@ -182,6 +192,7 @@ class OrderManager:
         self._remove_order(order_index)
 
     def _remove_order(self, order_index: int):
+        """Remove an order by its adjusted index and clear current selection if needed."""
         # correct the order index to match the list index
         true_order_index = order_index - 1
         if self.current_order_uuid == self.orders[true_order_index].uuid:
@@ -193,6 +204,7 @@ class OrderManager:
 
     # switch order focus    
     def switch_order(self):
+        """Interactively switch the current focus to an existing order."""
         self.list_orders()
         prompt = input(f"which order would you like to switch to? (1-{len(self.orders)}): ")
 
@@ -204,6 +216,7 @@ class OrderManager:
         self._switch_order(order_index)
 
     def _switch_order(self, order_index: int) -> Order | None:
+        """Switch focus internally to the chosen order index."""
         true_order_index = order_index - 1
         if 0 <= true_order_index < len(self.orders):
             new_order = self.orders[true_order_index]
@@ -219,6 +232,7 @@ class OrderManager:
             return None
 
     def _check_current_order(self):
+        """Ensure there's a valid, unpaid current order or prompt next steps."""
         order = self._get_order_by_uuid(self.current_order_uuid)
         if order is None:
             cprint("no current order selected.", "red")
@@ -242,6 +256,7 @@ class OrderManager:
                 
     
     def add_order_item(self, item: str | None = None, quantity: str | None = "1"):
+        """Add a menu item in given quantity to the current order."""
         # Prompt for item if not provided
         if item is None:
             item = input("enter the name of the menu item you'd like to add (or type 'menu' to review the options): ").strip().lower()
@@ -269,6 +284,7 @@ class OrderManager:
             self._add_order_item(item)
 
     def _add_order_item(self, item: OrderItem):
+        """Helper to append a single OrderItem to the current order."""
         self._check_current_order()
 
         order = self._get_order_by_uuid(self.current_order_uuid)
@@ -281,6 +297,7 @@ class OrderManager:
 
 
     def remove_order_item(self):
+        """Interactively remove a given quantity of a menu item from the current order."""
         prompt = input("which menu item would you like to remove?: ")
         prompt = prompt.strip().lower()
 
@@ -299,6 +316,7 @@ class OrderManager:
             self._remove_order_item(item)
 
     def _remove_order_item(self, item: OrderItem):
+        """Helper to remove a single OrderItem from the current order."""
         self._check_current_order()
 
         order = self._get_order_by_uuid(self.current_order_uuid)
@@ -311,6 +329,7 @@ class OrderManager:
 
     # Process orders
     def process_order(self):
+        """Process payment for the current order, apply extras, and record it in daily sales."""
         self._check_current_order()
 
         order = self._get_order_by_uuid(self.current_order_uuid)
@@ -347,6 +366,7 @@ class OrderManager:
 
     # Generate daily sales summary
     def generate_daily_sales_summary(self):
+        """Print each paid order’s total and the grand total sales for the day."""
         if not self.daily_sales:
             cprint("no sales to summarise :(", "red")
             return
@@ -359,8 +379,8 @@ class OrderManager:
 
         cprint("thank you for using papa-pizza!", "green")
 
-def parse_boolean_input(prompt: str, handle_invalid: bool = False) -> bool:  # removed self parameter
-    """Parse simple yes/no prompts, returning True for yes, False otherwise."""
+def parse_boolean_input(prompt: str, handle_invalid: bool = False) -> bool:
+    """Parse 'y/n' input, returning True for yes. Invalid only retried if handle_invalid=True."""
     if prompt.lower() in ["y", "yes"]:
         return True
     elif prompt.lower() in ["n", "no"] or not handle_invalid:
@@ -369,12 +389,14 @@ def parse_boolean_input(prompt: str, handle_invalid: bool = False) -> bool:  # r
         cprint("invalid input, please try again.", "red")
         return False
 class Command:
+    """Bind a CLI command name to a function and its description."""
     def __init__(self, name: str, function: Callable, description: str):
         self.name = name
         self.__function__ = function
         self.description = description
 
     def execute(self, tokens: list[str], required_count=None):
+        """Validate argument count then invoke the bound function."""
         signature = inspect.signature(self.__function__)
         params = list(signature.parameters.values())
 
@@ -392,6 +414,7 @@ class Command:
         return self.__function__(*tokens)
 
 class CommandParser:
+    """Parse user input, map to commands, and run them in a REPL."""
     def __init__(self):
         # Register basic commands
         self.commands = [
@@ -402,6 +425,7 @@ class CommandParser:
         ]
 
     def parse_and_execute(self, input_str):
+        """Match the input string to a registered command and execute."""
         tokens = input_str.strip().split()
         
         for command in self.commands:
@@ -415,6 +439,7 @@ class CommandParser:
         return None
 
     def show_help(self):
+        """Display help with all available command names and descriptions."""
         cprint("available commands:", "green", attrs=["bold"])
         for cmd in self.commands:
             signature = inspect.signature(cmd.__function__)
@@ -433,6 +458,7 @@ class CommandParser:
     # Exit the program
     @staticmethod
     def quit():
+        """Prompt for confirmation and exit the application on yes."""
         prompt = input(colored("are you sure you want to quit? (y/N): ", "yellow"))
         if parse_boolean_input(prompt, handle_invalid=True):
             cprint("okay, see ya!", "green")
@@ -443,12 +469,14 @@ class CommandParser:
 
     # User input menu
     def start_repl(self):
+        """Begin the interactive prompt loop until quit."""
         while True:
             user_input = input(colored("\n> ", "blue")).strip()
             if user_input:
                 self.parse_and_execute(user_input)
 
 class Application:
+    """Wire together CLI commands with the OrderManager and start the REPL."""
     def __init__(self, *args):
         self.order_manager = OrderManager()
 
@@ -486,6 +514,7 @@ to exit the program, type 'quit' or 'exit'.""")
     # Show menu
     @staticmethod
     def show_menu():
+        """Print Papa Pizza’s menu of available items."""
         cprint("papa-pizza's famous menu", None, attrs=["bold"])
 
         current_item = None
@@ -498,13 +527,16 @@ to exit the program, type 'quit' or 'exit'.""")
             
 # Main function to run the program
 def main():
+    """Entry point: instantiate Application with optional CLI args."""
     args = sys.argv[1:]
     Application(*args)
 
 class SignalHandler:
+    """Handle system SIGINT (Ctrl+C) to remind user to use 'quit'."""
     # signal handler to handle ctrl+c
     @staticmethod
     def sigint(_, __):
+        """Custom SIGINT handler printing a warning then exiting."""
         cprint("\n" + "next time, use quit!", "yellow")
         sys.exit(0)
 
