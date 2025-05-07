@@ -96,7 +96,7 @@ class Order:
             cost += 8.00
         else:
             raise ValueError("Invalid service type!")
-        return cost
+        return cost * 1.1 # add 10% GST
     
 class OrderManager:
     def __init__(self):
@@ -122,15 +122,14 @@ class OrderManager:
         return next((order for order in self.orders if order.uuid == order_uuid), None)
 
     # Add an order to the system
-    def create_order(self):
-        prompt = input("what type of order would you like to create? (pickup/delivery): ")
-        prompt = prompt.strip().lower()
-        if prompt == "pickup":
-            service_type = ServiceType.PICKUP
-        elif prompt == "delivery":
-            service_type = ServiceType.DELIVERY
-        else:
-            cprint("invalid service type", "red")
+    def create_order(self, type: str | None = None):
+        if type is None:
+            type = input("what type of order would you like to create? (pickup/delivery): ")
+
+        try:
+            service_type = ServiceType[type.upper()]
+        except:
+            cprint("invalid service type!", "red")
             return
         
         order = self._create_order([], service_type)
@@ -310,7 +309,7 @@ for example: 'pepperoni' for pepperoni pizza, etc, etc (name): """)
 
         # smoothly concatenate the extras!
         extras_str = f", including {' and '.join(extras)}" if extras else ""
-        print(f"the total for order {order.uuid} is ${order.total_cost:.2f}{extras_str}.")
+        print(f"the total for order {order.uuid} is ${order.total_cost:.2f}{extras_str} + 10% GST.")
         prompt = input(f"would you like to pay now? (y/N): ")
         if parse_boolean_input(prompt, handle_invalid=True):
             order.paid = True
@@ -350,11 +349,19 @@ class Command:
         self.__function__ = function
         self.description = description
 
-    def execute(self, tokens: list[str]):
+    def execute(self, tokens: list[str], required_count=None):
         signature = inspect.signature(self.__function__)
-        params = list(signature.parameters.keys())
-        if len(tokens) != len(params):
-            cprint(f"invalid number of arguments for command '{self.name}' — (expected {params}, got {tokens})", "red")
+        params = list(signature.parameters.values())
+
+        #
+        required_param_count = sum(
+            param.default == inspect.Parameter.empty and param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.POSITIONAL_ONLY)
+            for param in params
+        )
+
+        # Validate token count
+        if not required_param_count <= len(tokens) <= len(params):
+            cprint(f"invalid number of arguments for command '{self.name}' — (expected {required_count}-{len(params)}, got {len(tokens)})", "red")
             return None
 
         return self.__function__(*tokens)
@@ -383,11 +390,20 @@ class CommandParser:
         return None
 
     def show_help(self):
-        print("available commands:")
-        # find the longest command name's length and use it to align everything to that length
-        max_len = max(len(cmd.name) for cmd in self.commands)
+        cprint("available commands:", "green", attrs=["bold"])
         for cmd in self.commands:
-            print(f"{colored(cmd.name.ljust(max_len), 'blue')}  {cmd.description}")
+            signature = inspect.signature(cmd.__function__)
+
+            # format params
+            params = " ".join(
+                f"<{param} {value.default if value.default is not None else '(optional)'}>"
+                for param, value in signature.parameters.items()
+            )
+
+            # concatenate command name and params
+            cmd_with_params = f"{colored(cmd.name, 'blue')} {colored(params, 'cyan')}"
+
+            print(f"{cmd_with_params.ljust(max(len(cmd.name) for cmd in self.commands) + 50)}  {cmd.description}")
 
     # Exit the program
     @staticmethod
