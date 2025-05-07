@@ -418,7 +418,7 @@ class Application:
         parser.commands.append(Command("order remove", self.order_manager.remove_order, "Remove an order"))
         parser.commands.append(Command("order list", self.order_manager.list_orders, "List all orders"))
         parser.commands.append(Command("order process", self.order_manager.process_order, "Process an order"))
-        # parser.commands.append(Command("order process all", self.order_manager.process_all_orders, "Process all orders"))
+        # parser.commands.append(Command("order process all", self.order_manager.process_all_orders, "Process all available orders"))
         parser.commands.append(Command("order switch", self.order_manager.switch_order, "Switch to a different order"))
 
         parser.commands.append(Command("order item add", self.order_manager.add_order_item, "Add an item to the current order"))
