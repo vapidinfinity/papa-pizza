@@ -4,74 +4,99 @@
 
 ### Project Development Steps and Timeline
 
-| Phase                        | Description                                                                                  | Timeline (Hours) |
-|------------------------------|----------------------------------------------------------------------------------------------|------------------|
-| 1. Investigate & Plan        | • Break down requirements<br>• Produce development schedule<br>• Define objectives & scope   | 2                |
-| 2. Algorithm Design          | • Write structured pseudocode<br>• Create trace tables for core logic                        | 2                |
-| 3. Implementation (Part 2)   | • Develop Python OOP solution<br>• Apply modular coding, classes, inheritance                | 7              |
-| 4. Testing & Documentation   | • Develop test plan<br>• Execute tests and record results                                    | 2                |
-| 5. Evaluation & Retrospective| • Conduct user acceptance testing<br>• Reflect on process and code quality                   | 3                |
+| Phase                         | Tasks                                                                                                  | Dependencies     | Timeline (Hours) | Milestone             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------- | ---------------- | --------------------- |
+| 1. Requirements & Planning    | • Gather requirements, define scope and constraints<br>• Produce detailed schedule with milestones     | N/A              | 2                | Requirements approved |
+| 2. Design & Pseudocode        | • Create structured pseudocode including error paths<br>• Develop trace tables for core and edge cases | Phase 1 complete | 2                | Design reviewed       |
+| 3. Implementation Setup       | • Scaffold project, install dependencies, set up repo<br>• Create base classes and interfaces          | Phase 2 complete | 2                | Project scaffolded    |
+| 4. Feature Development        | • Implement Order, Menu, Discount, Tracking modules<br>• Prompt loyalty toggle, validation handling    | Phase 3 complete | 6                | Core features working |
+| 5. Testing & Debugging        | • Write and run unit/integration tests for edge cases<br>• Validate error handling and workflows       | Phase 4 complete | 1                | All tests passing     |
+| 6. Documentation & Evaluation | • Update docs, test plan, UAT, retrospective<br>• Final code review and polish                         | Phase 5 complete | 2                | Submission-ready      |
 
 ---
 
 ### Problem Outline
 
-**Purpose:**
-Build a PapaPizza Ordering System to accept and process pizza orders at a local shop, calculate costs with discounts, surcharges, and GST, and track daily sales.
+**Scope & Constraints**
 
-**Objectives:**
-1. Allow order creation (pickup or delivery).
-2. Compute individual order totals (menu price, delivery fee, loyalty/volume discounts, GST).
-3. Maintain a cumulative daily sales summary.
-4. Demonstrate Object-Oriented Programming, modular design, and data structures.
+- CLI-based pizza ordering only; no GUI or web interface
+- In-memory session storage (no file/db persistence); stub for future persistence
+- Python 3.9+, hostile input expected (invalid commands, out-of-range)
+
+**Purpose & Objectives**
+
+- Provide staff with clear CLI to manage multiple orders
+- Enforce pricing rules (discounts, fees, GST) accurately
+- Ensure robust validation and user feedback
+- Maintain daily sales summary for end-of-day reporting
 
 ---
 
 ### Problem Description
 
-1. **Objective:**
-   - Provide a CLI application for staff to create, modify, process, and summarize pizza orders.
+A detailed explanation of the PapaPizza Ordering System covering objectives, order process, cost rules, tracking and additional features:
 
-2. **Cost Calculation Method:**
-   - Sum item prices (quantity × unit price).
-   - Apply 5% discount if raw total > $100 or customer has a loyalty card.
-   - Add an $8 delivery fee for home deliveries.
-   - Apply 10% GST on the amount after discounts and fees.
+1. **Order Workflow**
 
-3. **Order Tracking & Sales:**
-   - Store each order with a unique ID, items, service type, and payment status.
-   - On payment, record the order total into a daily sales dictionary.
-   - Generate end-of-day summary listing each order and grand total.
+   - Staff initiates an order via `order create` (pickup/delivery + loyalty status).
+   - Items added/removed with `order item add/remove` with full validation (1–10, existing menu).
+   - `order process` calculates costs, prompts payment, records into daily sales.
+   - `order summary` outputs individual orders and grand total.
 
-4. **Additional Features:**
-   - Support adding/removing items from an open order.
-   - Switch between multiple pending orders.
-   - Enforce maximum quantity per item.
-   - Graceful handling of invalid input (menus, quantities, indices).
+2. **Cost Calculation**
+
+   - Raw cost = Σ(price × quantity).
+   - 5% discount applied `if cost > 100 or self.has_loyalty_card` or customer has loyalty card.
+   - $8 delivery fee `if service_type is DELIVERY`.
+   - 10% GST applied to subtotal after discounts & fees.
+
+3. **Tracking & Reporting**
+
+   - Unique `uuid` per order.
+   - In-memory daily sales dictionary to accumulate totals.
+   - End-of-day summary lists each order ID, amount, and aggregates.
+
+4. **Additional Features**
+   - Maximum 10 items per addition; negative or zero quantities rejected.
+   - Graceful errors for unknown commands, invalid service types, mismatched switch/remove IDs.
+   - Help command, user prompts, inline validation ensure usability.
 
 ---
 
-### Requirements List
+### Requirements List ([MoSCoW](https://en.wikipedia.org/wiki/MoSCoW_method))
 
-#### Functional Requirements
-1. Create new order (pickup or delivery).
-2. Add/remove pizza items by name and quantity.
-3. Validate menu selections and quantity.
-4. Calculate raw cost, apply discounts, fees, and GST.
-5. Mark orders as paid and record into daily sales.
-6. List all orders with details; generate daily sales summary.
+#### Must Have (Functional)
+
+<!--ran out of heading levels 💔-->
+
+1. Create new order with prompt for service type and loyalty card status
+2. Add/remove pizza items by name and quantity, enforcing max 1–10
+3. Validate all menu selections and quantities with clear messages
+4. Compute raw cost, discount, delivery fee, and GST correctly
+5. Mark orders paid and record totals to daily sales summary
+6. Generate end-of-day summary with individual and grand totals
+
+#### Should Have (Functional)
+
+- Help command listing available operations
+- Switching between pending orders by ID
+
+#### Could Have (Functional)
+
+- Partial name matching for menu items
+- Color-coded CLI output for statuses
 
 #### Non-Functional Requirements
-- **Usability:** Clear CLI prompts, help command, meaningful error messages.
-- **Performance:** Fast calculation (< 0.1 s per order).
-- **Reliability:** Prevent crashes on invalid input; persist in-memory for session.
-- **Maintainability:** Modular code, OOP design, clear naming, comments.
+
+- **Performance:** Order operations <0.1s
+- **Reliability:** No crashes on invalid input; stable CLI loop
+- **Maintainability:** Modular OOP design, clear naming, docstrings, inline comments
 
 ---
 
 ## 1.2 Design
 
-### Pseudocode Algorithm (Structured)
+### Pseudocode Algorithm
 
 ```pseudocode
 // Data Structures
@@ -112,8 +137,13 @@ class OrderManager:
         orders.append(order)
         currentOrder ← order
     method addItem(pizzaName, qty):
-        pizza ← find MENU by name
-        for i in 1..qty do currentOrder.items.append(pizza)
+        if qty < 1 or qty > 10:
+            throw Error("Quantity must be 1-10")
+        pizza ← MENU.lookup(name)
+        if pizza is null:
+            throw Error("Invalid menu item")
+        for i in 1..qty:
+            currentOrder.items.append(pizza)
     method removeItem(pizzaName, qty):
         // remove up to qty occurrences
     method processOrder():
@@ -129,17 +159,35 @@ class OrderManager:
 // Main REPL
 function main():
     manager ← new OrderManager()
-    loop:
-        cmd ← promptUser()
+    loop until exit:
+        cmd, args ← promptUser()
+        if cmd not in VALID_COMMANDS:
+            displayError("Unknown command, type 'help'")
+            continue
         switch cmd:
-            case "order create": ...
-            case "order item add": ...
-            ...
-            case "order summary": manager.generateDailySummary()
-            case "quit": exit()
+            case "order create":
+                service ← parseService(args)
+                loyalty ← prompt("Loyalty card? (yes/no)")
+                manager.createOrder(service, loyalty == 'yes')
+            case "order add":
+                if args.length < 2:
+                    displayError("Usage: order add <item> <qty>")
+                else:
+                    manager.addItem(args[0], toInt(args[1]))
+            case "order remove":
+                ...error checks...
+            case "order process":
+                manager.processOrder()
+            case "order summary":
+                manager.generateDailySummary()
+            case "help":
+                displayHelp()
+            case "quit":
+                exit loop
 ```
 
 > **Notes on Structure:**
+>
 > - Modular classes with clear properties/methods.
 > - Use of arrays/lists and dictionary for sales.
 > - Control flow: loops, conditionals.
@@ -148,12 +196,15 @@ function main():
 
 ### Trace Tables
 
-Test core calculations for several scenarios.
+| Test Case | Items            | Service  | RawCost | Discount | Fee ($8) | Subtotal | GST (10%) | Total With GST |
+| --------- | ---------------- | -------- | ------- | -------- | -------- | -------- | --------- | -------------- |
+| 1         | 1×Pepperoni      | PICKUP   | 21.00   | 0.00     | 0.00     | 21.00    | 2.10      | 23.10          |
+| 2         | 5×Margherita     | DELIVERY | 92.50   | 0.00     | 8.00     | 100.50   | 10.05     | 110.55         |
+| 3         | 5×BBQ Meatlovers | DELIVERY | 127.50  | 6.38     | 8.00     | 129.12   | 12.91     | 142.03         |
+| 4         | 6×Veg Supreme    | PICKUP   | 135.00  | 6.75     | 0.00     | 128.25   | 12.82     | 141.07         |
+| 5         | _none_           | PICKUP   | 0.00    | 0.00     | 0.00     | 0.00     | 0.00      | 0.00           |
+| 6         | 10×Hawaiian      | DELIVERY | 190.00  | 9.50     | 8.00     | 188.50   | 18.85     | 207.35         |
+| 7 (edge)  | qty=0 or qty=-1  | N/A      | —       | —        | —        | —        | —         | Error          |
+| 8 (edge)  | qty=11           | N/A      | —       | —        | —        | —        | —         | Error          |
 
-| Test Case | Items                     | Service  | RawCost | Discount (5%) | Fee ($8) | Subtotal |
-|-----------|---------------------------|----------|---------|---------------|----------|----------|
-| 1         | 1×Pepperoni ($21.00)      | PICKUP   | 21.00   | 0.00          | 0.00     | 21.00    |
-| 2         | 5×Margherita ($92.50)     | DELIVERY | 92.50   | 0.00          | 8.00     | 100.50   |
-| 3         | 5×BBQ ($127.50)           | DELIVERY | 127.50  | 6.38          | 8.00     | 129.12   |
-| 4         | 6×VegSupreme ($135.00)    | PICKUP   | 135.00  | 6.75          | 0.00     | 128.25   |
-| 5         | *no items*                | PICKUP   | 0.00    | 0.00          | 0.00     | 0.00     |
+---

@@ -65,14 +65,12 @@ menu: list[OrderItem] = [
 ]
 
 class Order:
-    # Initialise pizza order with pizza type and quantity
-    def __init__(self, items: list[OrderItem], service_type: ServiceType):
+    def __init__(self, items: list[OrderItem], service_type: ServiceType, has_loyalty_card: bool = False):
         self.uuid = uuid.uuid4()
         self.items = items
-        self.quantity = len(items)
         self.service_type = service_type
+        self.has_loyalty_card = has_loyalty_card
         self.is_discounted = False
-
         self.paid = False
 
     # Calculate the cost of the order based on menu prices
@@ -83,12 +81,11 @@ class Order:
     # Calculate total cost, apply discounts and delivery charges
     @property
     def total_cost(self):
+        """Compute total cost with discounts, fees, and GST."""
         cost = self.raw_cost
-
-
-        # Apply discount if total cost (after applying previous discounts) exceeds $100
-        if cost > 100:
-            cost *= 0.9
+        # Apply 5% discount for loyalty or bulk orders > $100
+        if cost > 100 or self.has_loyalty_card:
+            cost *= 0.95
             self.is_discounted = True
 
         if self.service_type is ServiceType.PICKUP:
@@ -138,8 +135,9 @@ class OrderManager:
 
     # Add an order to the system
     def create_order(self, type: str | None = None):
+        # prompt service type
         if type is None:
-            type = input("what type of order would you like to create? (pickup/delivery): ")
+            type = input("Order type? (pickup/delivery): ").strip().lower()
 
         try:
             service_type = ServiceType[type.upper()]
@@ -147,7 +145,11 @@ class OrderManager:
             cprint("invalid service type!", "red")
             return
         
-        order = self._create_order([], service_type)
+        # prompt loyalty card status
+        prompt = input("does customer have a loyalty card? (y/N): ").strip().lower()
+        has_loyalty = parse_boolean_input(prompt, handle_invalid=True)
+
+        order = self._create_order([], service_type, has_loyalty)
         if len(self.orders) > 1:
             prompt = input("do you want to switch to this order? (y/N): ")
             if parse_boolean_input(prompt, handle_invalid=False):
@@ -155,8 +157,9 @@ class OrderManager:
         else:
             self._switch_order(self.orders.index(order) + 1)
 
-    def _create_order(self, items: list[OrderItem], service_type: ServiceType) -> Order:
-        order = Order(items, service_type)
+    def _create_order(self, items: list[OrderItem], service_type: ServiceType, has_loyalty: bool) -> Order:
+        """Internal: instantiate and register a new Order."""
+        order = Order(items, service_type, has_loyalty)
         self.orders.append(order)
         cprint(f"order {order.uuid} created successfully!", "green")
         return order
@@ -357,6 +360,7 @@ class OrderManager:
         cprint("thank you for using papa-pizza!", "green")
 
 def parse_boolean_input(prompt: str, handle_invalid: bool = False) -> bool:  # removed self parameter
+    """Parse simple yes/no prompts, returning True for yes, False otherwise."""
     if prompt.lower() in ["y", "yes"]:
         return True
     elif prompt.lower() in ["n", "no"] or not handle_invalid:
