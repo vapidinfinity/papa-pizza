@@ -100,23 +100,21 @@ class Order:
     
 class OrderManager:
     def __init__(self):
-        # Initialise the Papa Pizza system with empty order list and daily sales dictionary
+        # initialise the Papa Pizza system with empty order list and daily sales dictionary
         self.orders: list[Order] = []
         self.current_order_uuid = None
         self.daily_sales = {}
-    
     def list_orders(self):
         if not self.orders:
             cprint("no orders found :(", "red")
             return
 
         for index, order in enumerate(self.orders, start=1):
-            print(f"{index}. {order.service_type.name.capitalize()} Order {order.uuid}:")
-            print(f"  Items: {", ".join([item.name for item in order.items])}")
-            print(f"  Service Type: {order.service_type.name}")
-            print(f"  Total Cost: ${order.total_cost:.2f}")
-            print(f"  Paid: {'Yes' if order.paid else 'No'}")
-            print()
+            print(f"{index}. {order.service_type.name.lower()} order {order.uuid}:")
+            print(f"  items: {", ".join([item.name for item in order.items]) or 'none'}")
+            print(f"  service type: {order.service_type.name}")
+            print(f"  total cost: ${order.total_cost:.2f}")
+            print(f"  paid: {'yes' if order.paid else 'no'}")
 
     def _get_order_by_uuid(self, order_uuid: uuid.UUID) -> Order:  # changed parameter type from str to uuid.UUID
         return next((order for order in self.orders if order.uuid == order_uuid), None)
@@ -135,7 +133,7 @@ class OrderManager:
         order = self._create_order([], service_type)
         if len(self.orders) > 1:
             prompt = input("do you want to switch to this order? (y/N): ")
-            if parse_boolean_input(prompt, handle_invalid=True):
+            if parse_boolean_input(prompt, handle_invalid=False):
                 self._switch_order(self.orders.index(order) + 1)
         else:
             self._switch_order(self.orders.index(order) + 1)
@@ -223,24 +221,28 @@ class OrderManager:
                     return
                 
     
-    def add_order_item(self):
-        prompt = input("""which menu item would you like to add? otherwise, review the menu by pressing enter and typing menu at the blue prompt.
-for example: 'pepperoni' for pepperoni pizza, etc, etc (name): """)
-        prompt = prompt.strip().lower()
-
-        item = next((item for item in menu if item.name.lower() == prompt), None)
+    def add_order_item(self, item: str | None = None, quantity: str | None = "1"):
+        # Prompt for item if not provided
         if item is None:
-            cprint("invalid menu item", "red")
-            return
-        
-        prompt = input("how many of this item would you like to add?: ")
-        if not prompt.isdigit() or int(prompt) < 1:
-            cprint("invalid quantity", "red")
-            return
-        quantity = int(prompt)
+            item = input("enter the name of the menu item you'd like to add (or type 'menu' to review the options): ").strip().lower()
 
+        item = next((menu_item for menu_item in menu if menu_item.name.lower() == item), None)
+
+        # Validate quantity
+        try:
+            quantity = int(quantity)
+            if quantity < 1:
+                raise ValueError
+        except:
+            prompt = input("Enter a valid quantity (1 or more): ")
+            if not prompt.isdigit() or int(prompt) < 1:
+                cprint("invalid quantity", "red")
+                return
+            quantity = int(prompt)
+
+        # check for maximum quantity
         if quantity > 10:
-            cprint("maximum quantity is 10 at a time, try adding items again to add more.", "red")
+            cprint("maximum quantity is 10 at a time. try adding items again to add more.", "red")
             return
 
         for _ in range(quantity):
@@ -309,7 +311,7 @@ for example: 'pepperoni' for pepperoni pizza, etc, etc (name): """)
 
         # smoothly concatenate the extras!
         extras_str = f", including {' and '.join(extras)}" if extras else ""
-        print(f"the total for order {order.uuid} is ${order.total_cost:.2f}{extras_str} + 10% GST.")
+        print(f"the total for order {order.uuid} is ${order.total_cost:.2f}{extras_str} including 10% GST.")
         prompt = input(f"would you like to pay now? (y/N): ")
         if parse_boolean_input(prompt, handle_invalid=True):
             order.paid = True
