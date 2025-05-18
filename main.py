@@ -19,7 +19,12 @@ from enum import Enum
 import inspect
 
 import uuid
+
 from termcolor import cprint, colored
+from colorama import just_fix_windows_console as enable_windows_ansi_interpretation
+
+# fix windows terminal misinterpreting ANSI escape sequences
+enable_windows_ansi_interpretation()
 
 # establish a base class for order items
 class OrderItem(ABC):
