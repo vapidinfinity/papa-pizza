@@ -465,7 +465,7 @@ class CommandParser:
     def quit():
         """Prompt for confirmation and exit the application on yes."""
         prompt = input(colored("are you sure you want to quit? (y/N): ", "yellow"))
-        if parse_boolean_input(prompt, handle_invalid=True):
+        if parse_boolean_input(prompt, handle_invalid=False):
             cprint("okay, see ya!", "green")
             sys.exit(0)
         else:
